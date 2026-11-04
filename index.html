@@ -1,0 +1,280 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1424"><title>Elhaky Finance | Viewer</title><style>:root{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f4edda;background:#0b1424}*{box-sizing:border-box}body{margin:0;padding:24px 16px 80px;max-width:800px;margin:auto}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #6b572c;padding-bottom:18px}h1{font-size:23px;color:#e4c178;margin:0}small,.muted{color:#a9b1bf}button,.upload{display:inline-block;border:1px solid #b99859;color:#f7e4bc;background:#17243a;padding:12px 16px;border-radius:12px;font-size:15px;cursor:pointer}input[type=file]{display:none}.panel{border:1px solid #35425a;background:#121e30;border-radius:17px;padding:18px;margin-top:16px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.stat{border:1px solid #35425a;background:#121e30;border-radius:14px;padding:15px}.stat b{display:block;font-size:19px;margin-top:10px;direction:ltr;text-align:right}.stat span{font-size:12px;color:#abb4c4}.gold{color:#e4c178}.green{color:#8bd5af}.red{color:#ff9e9e}h2{font-size:18px;color:#e4c178;margin:0 0 12px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{border-bottom:1px solid #303e53;padding:11px 5px;text-align:right}th{color:#c8ad7a}td.num{direction:ltr;text-align:left;white-space:nowrap}nav{display:flex;gap:7px;overflow:auto;margin-top:18px}nav button{white-space:nowrap;flex:1}nav button.active{background:#b99859;color:#101827}.filters{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}.filters label{font-size:12px;color:#c8ad7a;display:flex;flex-direction:column;gap:5px}.filters select{background:#17243a;color:#f4edda;border:1px solid #b99859;border-radius:9px;padding:9px;font-size:14px;min-width:100px}.report-scroll{overflow-x:auto}.report-scroll table{min-width:420px}.report-note{font-size:12px;color:#a9b1bf;line-height:1.7}#status{line-height:1.7}#chart{width:100%;height:180px} .empty{padding:24px;text-align:center;color:#a9b1bf}#content{overflow:auto}footer{font-size:12px;color:#9ca8b8;margin-top:24px;line-height:1.8}.lang-switch{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:140px}.lang{padding:7px 9px;font-size:12px;border-radius:8px}.lang.active{background:#b99859;color:#101827}body[dir=ltr] td,body[dir=ltr] th{text-align:left}body[dir=ltr] td.num{text-align:right}body[dir=ltr] .stat b{text-align:left}body[dir=ltr] .filters label{text-align:left}body[dir=ltr] .lang-switch{justify-content:flex-end}</style></head><body><header><div><h1>ELHAKY FINANCE</h1><small>MIDNIGHT GOLD · iPhone Viewer</small></div><div class="lang-switch"><button type="button" id="langAR" class="lang active">عربي</button><button type="button" id="langEN" class="lang">English</button><span class="muted" style="font-size:10px;display:block;text-align:center">READ ONLY</span></div></header><section class="panel"><button type="button" id="connectDrive">☁️ Connect OneDrive</button> <button type="button" id="refreshDrive" hidden>↻ Refresh</button> <label class="upload">📂 فتح ملف OneDrive JSON<input id="file" type="file" accept=".json,application/json"></label><p id="status" class="muted">اضغط Connect OneDrive لتسجيل الدخول وتحميل البيانات تلقائيًا، أو افتح ملف JSON يدويًا.</p></section><div class="cards" id="cards"></div><nav><button class="active" data-tab="dashboard">الرئيسية</button><button data-tab="transactions">الحركات</button><button data-tab="forecast">توقعات 12 شهر</button><button data-tab="reports">التقارير</button></nav><section class="panel"><div id="content" class="empty">افتح ملف المزامنة لعرض بياناتك</div></section><footer>نسخة قراءة فقط. اتصال Microsoft يستخدم صلاحية Files.Read. يتم تحميل البيانات إلى هذا الجهاز ولا تُرفع إلى GitHub. التحديث عند الاتصال أو الضغط على Refresh، وليس مزامنة مستمرة في الخلفية.</footer><script>
+'use strict';window.addEventListener('error',e=>{const st=document.getElementById('status');if(st)st.textContent='Viewer error: '+e.message});window.addEventListener('unhandledrejection',e=>{const st=document.getElementById('status');if(st)st.textContent='Viewer error: '+String(e.reason?.message||e.reason)});let snapshot=null,tab='dashboard',reportYear='all',reportPeriod='year',reportGroup='all';const $=id=>document.getElementById(id),fmt=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(Number(n)||0),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const amount=x=>Number(x?.amount)||0;const isIn=x=>String(x?.type||'').toLowerCase()==='in';const month=x=>{let d=String(x||'');if(/^\d{4}-\d{2}/.test(d))return d.slice(0,7);if(/^\d{2}\/\d{4}/.test(d))return d.slice(3,7)+'-'+d.slice(0,2);return ''};const sum=(arr,p)=>arr.filter(p).reduce((s,x)=>s+amount(x),0);const labelEN=(name,kind)=>{
+ const raw=String(name||'غير محدد');
+ if(uiLanguage!=='en')return raw;
+ const data=snapshot?.data||{};
+ const direct=kind==='group'?data.groupEN:data.categoryEN;
+ if(direct&&typeof direct==='object'&&!Array.isArray(direct)&&typeof direct[raw]==='string'&&direct[raw].trim())return direct[raw];
+ const pairs=kind==='group'?data.groups:data.categories;
+ if(Array.isArray(pairs)){
+  const hit=pairs.find(x=>x&&typeof x==='object'&&[x.name,x.ar,x.nameAR,x.arabic,x.label].includes(raw));
+  if(hit){const en=hit.en||hit.nameEN||hit.english||hit.labelEN;if(typeof en==='string'&&en.trim())return en;}
+ }
+ const common={'استثمار':'Investments','بنوك':'Banks','مصاريف معيشة':'Living expenses','شراء أراضي':'Land purchases','شراء دهب':'Gold purchases','شراء ذهب':'Gold purchases','شراء عقار':'Property purchases','الإيجار':'Rent','الرحلات':'Travel','مصروف البيت':'Household expenses','غير محدد':'Unspecified'};
+ return common[raw]||raw;
+};
+
+let txYear='all',txGroup='all',txCategory='all',txQuery='',drill={level:'years',year:'all',group:'all',category:'all'};
+const tr=(ar,en)=>uiLanguage==='en'?en:ar;
+const getGroup=x=>String(x.group||x.group_name||x.groupName||snapshot?.data?.groupMap?.[x.category]||'غير محدد');
+const getCategory=x=>String(x.category||x.category_name||x.cat||'غير محدد');
+const options=(values,selected,kind)=>values.map(v=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(v==='all'?tr('الكل','All'):kind?labelEN(v,kind):v)}</option>`).join('');
+const summary=items=>{let a=sum(items,isIn),b=sum(items,x=>!isIn(x));return `<div class="cards"><div class="stat"><span>${tr('الحركات','Transactions')}</span><b class="gold">${items.length}</b></div><div class="stat"><span>${tr('الإيرادات','IN')}</span><b class="green">${fmt(a)}</b></div><div class="stat"><span>${tr('المصروفات','OUT')}</span><b class="red">${fmt(b)}</b></div><div class="stat"><span>${tr('الصافي','Net')}</span><b class="gold">${fmt(a-b)}</b></div></div>`};
+const details=items=>`<div class="report-scroll"><table><thead><tr><th>${tr('الشهر','Month')}</th><th>${tr('التصنيف','Category')}</th><th>${tr('النوع','Type')}</th><th>${tr('المبلغ','Amount')}</th></tr></thead><tbody>${items.length?items.slice().sort((a,b)=>month(b.date).localeCompare(month(a.date))).map(x=>`<tr><td><span dir="ltr">${esc(x.date)}</span></td><td>${esc(labelEN(getCategory(x),'category'))}</td><td class="${isIn(x)?'green':'red'}">${isIn(x)?tr('إيراد','IN'):tr('مصروف','OUT')}</td><td class="num">${fmt(amount(x))}</td></tr>`).join(''):`<tr><td colspan="4">${tr('لا توجد حركات','No transactions')}</td></tr>`}</tbody></table></div>`;
+const dateDisplay=v=>{const d=new Date(v);return Number.isNaN(d.getTime())?esc(v||tr('غير محدد','Unknown')):new Intl.DateTimeFormat(uiLanguage==='en'?'en-GB':'en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(d)};
+function draw(){
+ if(!snapshot)return;
+ const tx=snapshot.data.items,fc=snapshot.forecasts,ins=sum(tx,isIn),outs=sum(tx,x=>!isIn(x)),balance=ins-outs;
+ const now=new Date(),el=$('content');
+ $('cards').innerHTML=[[tr('عدد الحركات','Transactions'),tx.length,'gold'],[tr('الرصيد الفعلي','Actual balance'),fmt(balance),'gold'],[tr('إجمالي الإيرادات','Total IN'),fmt(ins),'green'],[tr('إجمالي المصروفات','Total OUT'),fmt(outs),'red']].map(x=>`<div class="stat"><span>${x[0]}</span><b class="${x[2]}">${x[1]}</b></div>`).join('');
+ if(tab==='dashboard'){el.innerHTML=`<h2>${tr('الرئيسية','Dashboard')}</h2><p class="muted">${tr('آخر تحديث','Last updated')}: <span dir="ltr" style="unicode-bidi:isolate;display:inline-block">${dateDisplay(snapshot.createdAt)}</span></p><p class="muted">${tr('الأرقام أعلاه مبنية على الحركات الفعلية فقط.','The figures above are based on actual transactions only.')}</p>`;return;}
+ if(tab==='transactions'){
+ const years=[...new Set(tx.map(x=>month(x.date).slice(0,4)).filter(x=>/^\d{4}$/.test(x)))].sort().reverse();
+ const groups=[...new Set(tx.map(getGroup))].sort((a,b)=>a.localeCompare(b,'ar'));
+ if(txYear!=='all'&&!years.includes(txYear))txYear='all';
+ if(txGroup!=='all'&&!groups.includes(txGroup))txGroup='all';
+ const cats=[...new Set(tx.filter(x=>txGroup==='all'||getGroup(x)===txGroup).map(getCategory))].sort((a,b)=>a.localeCompare(b,'ar'));
+ if(txCategory!=='all'&&!cats.includes(txCategory))txCategory='all';
+ const filtered=tx.filter(x=>(txYear==='all'||month(x.date).startsWith(txYear))&&(txGroup==='all'||getGroup(x)===txGroup)&&(txCategory==='all'||getCategory(x)===txCategory)&&(!txQuery||[x.date,x.description,x.note,x.memo,getCategory(x),labelEN(getCategory(x),'category'),getGroup(x),labelEN(getGroup(x),'group')].some(v=>String(v||'').toLowerCase().includes(txQuery.toLowerCase()))));
+ el.innerHTML=`<h2>${tr('الحركات الفعلية','Actual transactions')}</h2><div class="filters"><label>${tr('السنة','Year')}<select id="txYear">${options(['all',...years],txYear)}</select></label><label>${tr('المجموعة','Group')}<select id="txGroup">${options(['all',...groups],txGroup,'group')}</select></label><label>${tr('التصنيف','Category')}<select id="txCategory">${options(['all',...cats],txCategory,'category')}</select></label><label>${tr('بحث','Search')}<input id="txQuery" value="${esc(txQuery)}" placeholder="${tr('بحث بالكلمة','Search text')}" style="background:#17243a;color:#f4edda;border:1px solid #b99859;border-radius:9px;padding:9px;max-width:170px"></label></div>${summary(filtered)}${details(filtered)}`;
+ for(const [id,key] of [['txYear','txYear'],['txGroup','txGroup'],['txCategory','txCategory']])$(id).onchange=e=>{if(key==='txYear')txYear=e.target.value;if(key==='txGroup'){txGroup=e.target.value;txCategory='all'}if(key==='txCategory')txCategory=e.target.value;draw()};
+ $('txQuery').oninput=e=>{txQuery=e.target.value;const pos=e.target.selectionStart;draw();$('txQuery').focus();$('txQuery').setSelectionRange(pos,pos)};
+ return;
+ }
+ if(tab==='forecast'){
+ let rows=[],rolling=balance;
+ for(let i=0;i<12;i++){let dt=new Date(now.getFullYear(),now.getMonth()+i,1),m=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');let a=i===0?0:sum(fc,x=>month(x.date)===m&&isIn(x)),b=i===0?0:sum(fc,x=>month(x.date)===m&&!isIn(x));rolling+=a-b;rows.push({m,a,b,rolling})}
+ const vals=rows.map(r=>r.rolling),min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
+ const points=vals.map((v,i)=>`${15+i*310/11},${155-(v-min)/range*125}`).join(' ');
+ el.innerHTML=`<h2>${tr('توقعات 12 شهر','12-month forecast')}</h2><p class="muted">${tr('الشهر الحالي يعرض الرصيد الفعلي، وتبدأ التوقعات من الشهر التالي.','Current month shows actual balance; projections start next month.')}</p><svg id="chart" viewBox="0 0 340 180" style="width:100%;height:180px"><line x1="15" y1="155" x2="325" y2="155" stroke="#40516b"/><polyline points="${points}" fill="none" stroke="#d9b46a" stroke-width="3"/></svg><p>${tr('الرصيد المتوقع بنهاية الفترة','Projected closing balance')}: <b class="gold">${fmt(rows.at(-1).rolling)}</b></p><div class="report-scroll"><table><thead><tr><th>${tr('الشهر','Month')}</th><th>IN</th><th>OUT</th><th>${tr('الرصيد','Balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td dir="ltr">${r.m}</td><td class="num green">${fmt(r.a)}</td><td class="num red">${fmt(r.b)}</td><td class="num gold">${fmt(r.rolling)}</td></tr>`).join('')}</tbody></table></div>`;return;
+ }
+ if(tab==='reports'){
+ const years=[...new Set(tx.map(x=>month(x.date).slice(0,4)).filter(x=>/^\d{4}$/.test(x)))].sort().reverse();
+ const filtered=tx.filter(x=>(drill.year==='all'||month(x.date).startsWith(drill.year))&&(drill.group==='all'||getGroup(x)===drill.group)&&(drill.category==='all'||getCategory(x)===drill.category));
+ let title='', entries=[],next='';
+ if(drill.level==='years'){title=tr('السنوات','Years');entries=years.map(y=>[y,tx.filter(x=>month(x.date).startsWith(y))]);next='groups'}
+ if(drill.level==='groups'){title=tr('المجموعات','Groups');entries=[...new Set(filtered.map(getGroup))].sort().map(g=>[g,filtered.filter(x=>getGroup(x)===g)]);next='categories'}
+ if(drill.level==='categories'){title=tr('التصنيفات','Categories');entries=[...new Set(filtered.map(getCategory))].sort().map(c=>[c,filtered.filter(x=>getCategory(x)===c)]);next='details'}
+ const trail=`<div class="filters"><button id="drillReset">${tr('كل السنوات','All years')}</button>${drill.year!=='all'?`<button id="drillYear">${esc(drill.year)}</button>`:''}${drill.group!=='all'?`<button id="drillGroup">${esc(labelEN(drill.group,'group'))}</button>`:''}${drill.category!=='all'?`<button id="drillCat">${esc(labelEN(drill.category,'category'))}</button>`:''}</div>`;
+ el.innerHTML=`<h2>${tr('التقارير التفصيلية','Drill-down reports')}</h2>${trail}<h2>${title||tr('الحركات التفصيلية','Transaction details')}</h2>${summary(filtered)}${drill.level==='details'?details(filtered):`<div class="report-scroll"><table><thead><tr><th>${title}</th><th>IN</th><th>OUT</th><th>${tr('الصافي','Net')}</th><th></th></tr></thead><tbody>${entries.map(([key,items],i)=>`<tr><td>${esc(drill.level==='years'?key:labelEN(key,drill.level==='groups'?'group':'category'))}</td><td class="num green">${fmt(sum(items,isIn))}</td><td class="num red">${fmt(sum(items,x=>!isIn(x)))}</td><td class="num gold">${fmt(sum(items,isIn)-sum(items,x=>!isIn(x)))}</td><td><button data-drill="${i}">${tr('عرض','Open')}</button></td></tr>`).join('')}</tbody></table></div>`}`;
+ $('drillReset').onclick=()=>{drill={level:'years',year:'all',group:'all',category:'all'};draw()};
+ if($('drillYear'))$('drillYear').onclick=()=>{drill.level='groups';drill.group='all';drill.category='all';draw()};
+ if($('drillGroup'))$('drillGroup').onclick=()=>{drill.level='categories';drill.category='all';draw()};
+ if($('drillCat'))$('drillCat').onclick=()=>{drill.level='details';draw()};
+ el.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{const key=entries[Number(b.dataset.drill)]?.[0];if(key===undefined)return;if(drill.level==='years')drill.year=key;if(drill.level==='groups')drill.group=key;if(drill.level==='categories')drill.category=key;drill.level=next;draw()});
+ return;
+ }
+}
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));draw()}));$('file').addEventListener('change',async e=>{try{let file=e.target.files[0];if(!file)return;if(file.size>30e6)throw Error('الملف أكبر من 30MB');let v=JSON.parse(await file.text());if(v.format!=='elhaky-finance-readonly-sync'||!Array.isArray(v?.data?.items)||!Array.isArray(v.forecasts))throw Error('صيغة الملف غير مطابقة لمزامنة Elhaky Finance v8');if(v.data.items.some(x=>!Number.isFinite(Number(x.amount)))||v.forecasts.some(x=>!Number.isFinite(Number(x.amount))))throw Error('يوجد مبلغ غير صالح');snapshot=v;$('status').textContent=`تم فتح ${file.name} — ${v.data.items.length} حركة، ${v.forecasts.length} توقع. آخر تحديث: ${v.createdAt||'غير محدد'}`;draw()}catch(err){$('status').textContent='تعذّر فتح الملف: '+err.message}});
+
+// UI translation only: original financial records remain untouched.
+const translations = [
+['نسخة قراءة فقط. اتصال Microsoft يستخدم صلاحية Files.Read. يتم تحميل البيانات إلى هذا الجهاز ولا تُرفع إلى GitHub. التحديث عند الاتصال أو الضغط على Refresh، وليس مزامنة مستمرة في الخلفية.','Read-only OneDrive viewer. Sign in and tap Refresh to fetch the latest data. No background sync or upload to GitHub.'],
+['اضغط Connect OneDrive لتسجيل الدخول وتحميل البيانات تلقائيًا، أو افتح ملف JSON يدويًا.','Choose ElhakyFinance-readonly.json from Files → OneDrive. The file is read on your device and is not uploaded to a server.'],
+['الشهر الحالي يعرض الرصيد الفعلي فقط، والتوقعات تبدأ من الشهر التالي لتجنّب احتساب الشهر الجاري مرتين.','The current month shows actual balance only. Forecasts start next month to avoid double counting.'],
+['التقارير مبنية على الحركات الفعلية فقط؛ التوقعات لا تدخل في إجمالياتها. اختيار المجموعة يعتمد على حقل المجموعة في ملف المزامنة.','Reports use actual transactions only, not forecasts. Group filtering depends on the group field in the sync file.'],
+['افتح ملف المزامنة لعرض بياناتك','Open the sync file to view your data'],
+['التدفقات النقدية المتوقعة — 12 شهر','Projected cash flow — 12 months'],
+['الرصيد المتوقع خلال 12 شهرًا','Projected balance over 12 months'],
+['المقارنة الربع سنوية','Quarterly comparison'],
+['المقارنة السنوية','Annual comparison'],
+['لا توجد بيانات لهذه الاختيارات','No data for these filters'],
+['معروض أحدث 300 حركة فقط','Showing the latest 300 transactions only'],
+['تعذّر فتح الملف:','Unable to open file:'],
+['صيغة الملف غير مطابقة لمزامنة Elhaky Finance v8','File format does not match Elhaky Finance v8 sync'],
+['يوجد مبلغ غير صالح','An invalid amount was found'],
+['الملف أكبر من 30MB','File exceeds 30MB'],
+['فتح ملف OneDrive JSON','Open OneDrive JSON file'],
+['توقعات 12 شهر','12-month forecast'],
+['الحركات الفعلية','Actual transactions'],
+['التقارير المالية','Financial reports'],
+['تحليل التصنيفات','Category breakdown'],
+['كل المجموعات','All groups'],
+['كل السنوات','All years'],
+['عدد الحركات','Transactions'],
+['الرصيد الفعلي','Actual balance'],
+['إجمالي الإيرادات','Total income'],
+['إجمالي المصروفات','Total expenses'],
+['الرصيد المتوقع بنهاية الفترة:','Projected ending balance:'],
+['عدد التوقعات:','Forecast entries:'],
+['آخر تحديث:','Last updated:'],
+['آخر ملف:','Last file:'],
+['غير محدد','Unspecified'],
+['تم فتح','Opened'],
+['حركة،','transactions,'],
+['توقع.','forecasts.'],
+['الرئيسية','Dashboard'],
+['الحركات','Transactions'],
+['التوقعات','Forecasts'],
+['التقارير','Reports'],
+['نظرة عامة','Overview'],
+['الإيرادات','Income'],
+['المصروفات','Expenses'],
+['إيرادات','Income'],
+['مصروفات','Expenses'],
+['إيراد','Income'],
+['مصروف','Expense'],
+['الصافي','Net'],
+['الرصيد','Balance'],
+['التصنيف','Category'],
+['المجموعة','Group'],
+['المجموعات','Groups'],
+['الفترة','Period'],
+['السنة','Year'],
+['الشهر','Month'],
+['المبلغ','Amount'],
+['النوع','Type'],
+['البند','Item'],
+['ربع سنوي','Quarterly'],
+['سنوي','Annual'],
+['السنوية','Annual'],
+['الربع سنوية','Quarterly'],
+['كل','All']
+];
+let uiLanguage=localStorage.getItem('elhaky-viewer-language')==='en'?'en':'ar';
+const originalText=new WeakMap();
+function translateUI(){
+ document.documentElement.lang=uiLanguage;
+ document.documentElement.dir=uiLanguage==='en'?'ltr':'rtl';
+ document.body.dir=document.documentElement.dir;
+ for(const code of ['AR','EN']){const btn=document.getElementById('lang'+code);if(btn)btn.classList.toggle('active',uiLanguage===code.toLowerCase());}
+ const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+ let node;
+ while((node=walker.nextNode())){
+  if(node.parentElement?.closest('script,style'))continue;
+  if(!originalText.has(node))originalText.set(node,node.nodeValue);
+  const original=originalText.get(node);
+  if(uiLanguage==='ar'){if(node.nodeValue!==original)node.nodeValue=original;continue;}
+  let translated=original;
+  for(const [ar,en] of translations)translated=translated.split(ar).join(en);
+  if(node.nodeValue!==translated)node.nodeValue=translated;
+ }
+ const svg=document.getElementById('chart');
+ if(svg)svg.setAttribute('aria-label',uiLanguage==='en'?'Projected balance chart':'رسم الرصيد المتوقع');
+}
+let translationScheduled=false;
+const observer=new MutationObserver(()=>{
+ if(translationScheduled)return;
+ translationScheduled=true;
+ queueMicrotask(()=>{translationScheduled=false;translateUI()});
+});
+observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+for(const code of ['AR','EN'])document.getElementById('lang'+code).addEventListener('click',()=>{
+ uiLanguage=code.toLowerCase();
+ localStorage.setItem('elhaky-viewer-language',uiLanguage);
+ if(snapshot)draw();
+ translateUI();
+});
+translateUI();
+
+// Microsoft personal OneDrive, OAuth 2.0 authorization code + PKCE.
+// No client secret and no write scopes. Tokens kept in sessionStorage only.
+const OD_CLIENT='e978d332-4509-4154-9b5b-20114168afc1';
+const OD_REDIRECT='https://elhaky-egp.github.io/Elhaky-iPhone-Viewer/';
+const OD_FILE='My Work/Personal Finanical Information/ElhakyFinance/ElhakyFinance-readonly.json';
+const OD_SCOPE='openid profile offline_access Files.Read';
+const odStatus=m=>{document.getElementById('status').textContent=m};
+const b64url=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function connectOneDrive(){
+ try {
+  if(!crypto.subtle)throw Error('HTTPS is required');
+  const verifier=b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
+  const state=b64url(crypto.getRandomValues(new Uint8Array(16)));
+  sessionStorage.setItem('od_pkce',verifier);
+  sessionStorage.setItem('od_state',state);
+  const q=new URLSearchParams({client_id:OD_CLIENT,response_type:'code',redirect_uri:OD_REDIRECT,response_mode:'query',scope:OD_SCOPE,code_challenge:challenge,code_challenge_method:'S256',prompt:'select_account',state});
+  location.assign('https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?'+q);
+ }catch(e){odStatus('OneDrive: '+e.message)}
+}
+function acceptSnapshot(v){
+ if(v?.format!=='elhaky-finance-readonly-sync'||!Array.isArray(v?.data?.items)||!Array.isArray(v.forecasts))throw Error('Invalid Elhaky Finance sync format');
+ if(v.data.items.some(x=>!Number.isFinite(Number(x.amount)))||v.forecasts.some(x=>!Number.isFinite(Number(x.amount))))throw Error('Invalid amount');
+ snapshot=v;draw();
+}
+// OneDrive Graph: metadata first, then file download. No search-index dependency.
+const OD_GRAPH='https://graph.microsoft.com/v1.0/me/drive';
+async function odGet(url,token){
+ const r=await fetch(url,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+ if(r.status===401){sessionStorage.removeItem('od_access');throw Error('Session expired (401); reconnect OneDrive');}
+ return r;
+}
+async function odFindFile(token){
+ const path=OD_FILE.split('/').map(encodeURIComponent).join('/');
+ const direct=await odGet(OD_GRAPH+'/root:/'+path+'?$select=id,name,file,parentReference',token);
+ if(direct.ok)return await direct.json();
+ const directCode=direct.status;
+ // Resolve each folder through its children; search() can miss files.
+ let parent='root';let rootNames=[],lastNames=[];const parts=OD_FILE.split('/');
+ for(let i=0;i<parts.length;i++){
+  let next=parent==='root'?OD_GRAPH+'/root/children?$select=id,name,file,folder&$top=200':OD_GRAPH+'/items/'+encodeURIComponent(parent)+'/children?$select=id,name,file,folder&$top=200';
+  let found=null;lastNames=[];
+  while(next){
+   const response=await odGet(next,token);
+   if(!response.ok)throw Error('Graph folder HTTP '+response.status+' at '+parts.slice(0,i).join('/'));
+   const page=await response.json();
+   lastNames.push(...(page.value||[]).map(x=>String(x.name||'')));if(i===0)rootNames=lastNames;
+   found=(page.value||[]).find(x=>x.name.toLowerCase()===parts[i].toLowerCase());
+   if(found)break;
+   next=page['@odata.nextLink']||null;
+  }
+  if(!found){
+   const profile=await odGet('https://graph.microsoft.com/v1.0/me?$select=userPrincipalName,mail',token);
+   const who=profile.ok?await profile.json():{};
+   const account=who.mail||who.userPrincipalName||'unknown';
+   if(i===0)throw Error('My Work not visible to app. Microsoft account: '+account+'; root folders: '+rootNames.join(', ')+'; direct HTTP '+directCode+'. Tap Connect OneDrive to select the correct account.');
+   throw Error('Missing '+parts.slice(0,i+1).join('/')+'; account: '+account+'; available here: '+lastNames.join(', ')+'; direct HTTP '+directCode);
+  }
+  if(i<parts.length-1&&!found.folder)throw Error('Not a folder: '+parts[i]);
+  parent=found.id;
+  if(i===parts.length-1)return found;
+ }
+ throw Error('File not found');
+}
+async function fetchOneDrive(){
+ const token=sessionStorage.getItem('od_access');
+ if(!token){odStatus('Connect OneDrive first / اتصل بـ OneDrive أولاً');return;}
+ odStatus('جارٍ تحميل البيانات من OneDrive...');
+ try{
+  const item=await odFindFile(token);
+  if(!item.file)throw Error('The sync item is not a file');
+  // Graph /content redirects to a OneDrive download host; use the URL from metadata
+  // when available and fall back to /content if the metadata omits it.
+  const meta=await odGet(OD_GRAPH+'/items/'+encodeURIComponent(item.id),token);
+  if(!meta.ok)throw Error('Graph metadata HTTP '+meta.status);
+  const detail=await meta.json();
+  const download=detail['@microsoft.graph.downloadUrl'];
+  let response;
+  if(download){response=await fetch(download,{cache:'no-store'});}
+  else{response=await odGet(OD_GRAPH+'/items/'+encodeURIComponent(item.id)+'/content',token);}
+  if(!response.ok)throw Error('File download HTTP '+response.status+'; item '+item.name);
+  const raw=await response.text();
+  if(raw.length>30000000)throw Error('Sync file is too large');
+  const v=JSON.parse(raw);
+  acceptSnapshot(v);
+  odStatus('OneDrive ✓ — '+v.data.items.length+' transactions / حركة — '+(v.createdAt||''));
+ }catch(e){odStatus('OneDrive: '+(e?.message||String(e)));}
+}
+async function completeOneDriveRedirect(){
+ const url=new URL(location.href),code=url.searchParams.get('code'),error=url.searchParams.get('error');
+ if(!code&&!error)return;
+ history.replaceState({},'',OD_REDIRECT);
+ if(error){odStatus('Microsoft: '+(url.searchParams.get('error_description')||error));return}
+ const state=sessionStorage.getItem('od_state'),verifier=sessionStorage.getItem('od_pkce');
+ if(!state||url.searchParams.get('state')!==state||!verifier){odStatus('Login state mismatch. Connect again.');return}
+ sessionStorage.removeItem('od_state');sessionStorage.removeItem('od_pkce');
+ try{
+  const form=new URLSearchParams({client_id:OD_CLIENT,grant_type:'authorization_code',code,redirect_uri:OD_REDIRECT,code_verifier:verifier,scope:OD_SCOPE});
+  const res=await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:form});
+  const data=await res.json();
+  if(!res.ok||!data.access_token)throw Error(data.error_description||data.error||'Token exchange failed');
+  sessionStorage.setItem('od_access',data.access_token);
+  document.getElementById('refreshDrive').hidden=false;
+  await fetchOneDrive();
+ }catch(e){odStatus('Microsoft login: '+e.message)}
+}
+document.getElementById('connectDrive').addEventListener('click',connectOneDrive);
+document.getElementById('refreshDrive').addEventListener('click',fetchOneDrive);
+if(sessionStorage.getItem('od_access')){document.getElementById('refreshDrive').hidden=false;if(!new URL(location.href).searchParams.has('code'))fetchOneDrive()}
+completeOneDriveRedirect();
+</script></body></html>
