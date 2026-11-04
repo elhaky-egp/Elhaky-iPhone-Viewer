@@ -14,7 +14,7 @@
  return common[raw]||raw;
 };
 
-let txYear='all',txGroup='all',txCategory='all',txQuery='',drill={level:'years',year:'all',group:'all',category:'all'};
+let reportFilterYear='all',reportFilterGroup='all';let txYear='all',txGroup='all',txCategory='all',txQuery='',drill={level:'years',year:'all',group:'all',category:'all'};
 const tr=(ar,en)=>uiLanguage==='en'?en:ar;
 const getGroup=x=>String(x.group||x.group_name||x.groupName||snapshot?.data?.groupMap?.[x.category]||'غير محدد');
 const getCategory=x=>String(x.category||x.category_name||x.cat||'غير محدد');
@@ -50,18 +50,39 @@ function draw(){
  }
  if(tab==='reports'){
  const years=[...new Set(tx.map(x=>month(x.date).slice(0,4)).filter(x=>/^\d{4}$/.test(x)))].sort().reverse();
- const filtered=tx.filter(x=>(drill.year==='all'||month(x.date).startsWith(drill.year))&&(drill.group==='all'||getGroup(x)===drill.group)&&(drill.category==='all'||getCategory(x)===drill.category));
- let title='', entries=[],next='';
- if(drill.level==='years'){title=tr('السنوات','Years');entries=years.map(y=>[y,tx.filter(x=>month(x.date).startsWith(y))]);next='groups'}
- if(drill.level==='groups'){title=tr('المجموعات','Groups');entries=[...new Set(filtered.map(getGroup))].sort().map(g=>[g,filtered.filter(x=>getGroup(x)===g)]);next='categories'}
- if(drill.level==='categories'){title=tr('التصنيفات','Categories');entries=[...new Set(filtered.map(getCategory))].sort().map(c=>[c,filtered.filter(x=>getCategory(x)===c)]);next='details'}
- const trail=`<div class="filters"><button id="drillReset">${tr('كل السنوات','All years')}</button>${drill.year!=='all'?`<button id="drillYear">${esc(drill.year)}</button>`:''}${drill.group!=='all'?`<button id="drillGroup">${esc(labelEN(drill.group,'group'))}</button>`:''}${drill.category!=='all'?`<button id="drillCat">${esc(labelEN(drill.category,'category'))}</button>`:''}</div>`;
- el.innerHTML=`<h2>${tr('التقارير التفصيلية','Drill-down reports')}</h2>${trail}<h2>${title||tr('الحركات التفصيلية','Transaction details')}</h2>${summary(filtered)}${drill.level==='details'?details(filtered):`<div class="report-scroll"><table><thead><tr><th>${title}</th><th>IN</th><th>OUT</th><th>${tr('الصافي','Net')}</th><th></th></tr></thead><tbody>${entries.map(([key,items],i)=>`<tr><td>${esc(drill.level==='years'?key:labelEN(key,drill.level==='groups'?'group':'category'))}</td><td class="num green">${fmt(sum(items,isIn))}</td><td class="num red">${fmt(sum(items,x=>!isIn(x)))}</td><td class="num gold">${fmt(sum(items,isIn)-sum(items,x=>!isIn(x)))}</td><td><button data-drill="${i}">${tr('عرض','Open')}</button></td></tr>`).join('')}</tbody></table></div>`}`;
- $('drillReset').onclick=()=>{drill={level:'years',year:'all',group:'all',category:'all'};draw()};
- if($('drillYear'))$('drillYear').onclick=()=>{drill.level='groups';drill.group='all';drill.category='all';draw()};
+ const groups=[...new Set(tx.map(getGroup))].sort((a,b)=>a.localeCompare(b,'ar'));
+ if(reportFilterYear!=='all'&&!years.includes(reportFilterYear))reportFilterYear='all';
+ if(reportFilterGroup!=='all'&&!groups.includes(reportFilterGroup))reportFilterGroup='all';
+ // The report filters are independent of the Transactions tab and always apply to every drill level.
+ const base=tx.filter(x=>(reportFilterYear==='all'||month(x.date).startsWith(reportFilterYear))&&(reportFilterGroup==='all'||getGroup(x)===reportFilterGroup));
+ const filtered=base.filter(x=>(drill.year==='all'||month(x.date).startsWith(drill.year))&&(drill.group==='all'||getGroup(x)===drill.group)&&(drill.category==='all'||getCategory(x)===drill.category));
+ let title='',entries=[],next='';
+ if(drill.level==='years'){
+  title=tr('السنوات','Years');entries=years.filter(y=>reportFilterYear==='all'||y===reportFilterYear).map(y=>[y,base.filter(x=>month(x.date).startsWith(y))]).filter(e=>e[1].length);next=reportFilterGroup==='all'?'groups':'categories';
+ }
+ if(drill.level==='groups'){
+  title=tr('المجموعات','Groups');entries=[...new Set(filtered.map(getGroup))].sort((a,b)=>a.localeCompare(b,'ar')).map(g=>[g,filtered.filter(x=>getGroup(x)===g)]);next='categories';
+ }
+ if(drill.level==='categories'){
+  title=tr('التصنيفات','Categories');entries=[...new Set(filtered.map(getCategory))].sort((a,b)=>a.localeCompare(b,'ar')).map(c=>[c,filtered.filter(x=>getCategory(x)===c)]);next='details';
+ }
+ const trail=`<div class="filters"><button id="drillReset">${tr('بداية التقرير','Report start')}</button>${drill.year!=='all'?`<button id="drillYear">${esc(drill.year)}</button>`:''}${drill.group!=='all'?`<button id="drillGroup">${esc(labelEN(drill.group,'group'))}</button>`:''}${drill.category!=='all'?`<button id="drillCat">${esc(labelEN(drill.category,'category'))}</button>`:''}</div>`;
+ const filterBar=`<div class="filters"><label>${tr('فلتر السنة','Year filter')}<select id="reportYearFilter">${options(['all',...years],reportFilterYear)}</select></label><label>${tr('فلتر المجموعة','Group filter')}<select id="reportGroupFilter">${options(['all',...groups],reportFilterGroup,'group')}</select></label></div>`;
+ el.innerHTML=`<h2>${tr('التقارير التفصيلية','Drill-down reports')}</h2>${filterBar}${trail}<h2>${title||tr('الحركات التفصيلية','Transaction details')}</h2>${summary(filtered)}${drill.level==='details'?details(filtered):`<div class="report-scroll"><table><thead><tr><th>${title}</th><th>IN</th><th>OUT</th><th>${tr('الصافي','Net')}</th><th></th></tr></thead><tbody>${entries.length?entries.map(([key,items],i)=>`<tr><td>${esc(drill.level==='years'?key:labelEN(key,drill.level==='groups'?'group':'category'))}</td><td class="num green">${fmt(sum(items,isIn))}</td><td class="num red">${fmt(sum(items,x=>!isIn(x)))}</td><td class="num gold">${fmt(sum(items,isIn)-sum(items,x=>!isIn(x)))}</td><td><button data-drill="${i}">${tr('عرض','Open')}</button></td></tr>`).join(''):`<tr><td colspan="5">${tr('لا توجد حركات','No transactions')}</td></tr>`}</tbody></table></div>`}`;
+ const resetReport=()=>{drill={level:reportFilterGroup!=='all'?'categories':reportFilterYear!=='all'?'groups':'years',year:'all',group:'all',category:'all'};draw()};
+ $('reportYearFilter').onchange=e=>{reportFilterYear=e.target.value;resetReport()};
+ $('reportGroupFilter').onchange=e=>{reportFilterGroup=e.target.value;resetReport()};
+ $('drillReset').onclick=resetReport;
+ if($('drillYear'))$('drillYear').onclick=()=>{drill.level=reportFilterGroup==='all'?'groups':'categories';drill.group='all';drill.category='all';draw()};
  if($('drillGroup'))$('drillGroup').onclick=()=>{drill.level='categories';drill.category='all';draw()};
  if($('drillCat'))$('drillCat').onclick=()=>{drill.level='details';draw()};
- el.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{const key=entries[Number(b.dataset.drill)]?.[0];if(key===undefined)return;if(drill.level==='years')drill.year=key;if(drill.level==='groups')drill.group=key;if(drill.level==='categories')drill.category=key;drill.level=next;draw()});
+ el.querySelectorAll('[data-drill]').forEach(btn=>btn.onclick=()=>{
+  const key=entries[Number(btn.dataset.drill)]?.[0];if(key===undefined)return;
+  if(drill.level==='years')drill.year=key;
+  if(drill.level==='groups')drill.group=key;
+  if(drill.level==='categories')drill.category=key;
+  drill.level=next;draw();
+ });
  return;
  }
 }

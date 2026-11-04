@@ -1,1 +1,1 @@
-Elhaky Finance iPhone Viewer: upload index.html to the root of the GitHub Pages repository. Read-only OneDrive connection unchanged. Dashboard actuals only; transactions filters; report drill-down.
+Replace index.html in the Elhaky-iPhone-Viewer GitHub Pages repository. Reports: year/group filters with category and transaction drill-down. OneDrive OAuth settings and read-only data are unchanged. Keep a copy of your previous index.html.
